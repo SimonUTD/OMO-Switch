@@ -239,7 +239,7 @@
    },
   "variantOptions": {
     "xhigh": "xhigh - Extra high intensity",
-    "max": "max - Maximum intensity (legacy)",
+    "max": "max - Maximum intensity",
     "high": "high - High intensity",
     "medium": "medium - Medium intensity",
     "low": "low - Low intensity",

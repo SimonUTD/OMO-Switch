@@ -160,7 +160,7 @@
   },
   "variantOptions": {
     "xhigh": "xhigh - 초고강도",
-    "max": "max - 최고 강도(구형)",
+    "max": "max - 최고 강도",
     "high": "high - 높은 강도",
     "medium": "medium - 중간 강도",
     "low": "low - 낮은 강도",

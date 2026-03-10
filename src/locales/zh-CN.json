@@ -239,7 +239,7 @@
   },
   "variantOptions": {
     "xhigh": "xhigh - 超高强度",
-    "max": "max - 最高强度（旧）",
+    "max": "max - 最高强度",
     "high": "high - 高强度",
     "medium": "medium - 中等强度",
     "low": "low - 低强度",
