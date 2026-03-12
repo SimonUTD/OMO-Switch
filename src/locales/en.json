@@ -609,6 +609,8 @@
      "description": "OpenCode and Oh My OpenCode version status",
      "currentVersion": "Current Version",
      "latestVersion": "Latest Version",
+     "installSource": "Install Source",
+     "installPath": "Install Path",
      "upToDate": "Up to date",
      "updateAvailable": "Update available",
      "notInstalled": "Not installed",

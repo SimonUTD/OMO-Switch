@@ -48,6 +48,7 @@ export function SearchableSelect({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   // 获取当前选中的选项
   const selectedOption = options.find((opt) => opt.value === value);
@@ -133,6 +134,26 @@ export function SearchableSelect({
     }
   }, [isOpen, filteredOptions, value]);
 
+  useEffect(() => {
+    if (!isOpen || !listRef.current) return;
+
+    const list = listRef.current;
+    const stopScrollPropagation = (event: WheelEvent) => {
+      const { scrollTop, scrollHeight, clientHeight } = list;
+      const deltaY = event.deltaY;
+      const atTop = scrollTop <= 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+
+      if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+        event.preventDefault();
+      }
+      event.stopPropagation();
+    };
+
+    list.addEventListener('wheel', stopScrollPropagation, { passive: false });
+    return () => list.removeEventListener('wheel', stopScrollPropagation);
+  }, [isOpen]);
+
   return (
     <div className={cn('w-full', className)}>
       {label && (
@@ -206,7 +227,10 @@ export function SearchableSelect({
             </div>
 
             {/* 选项列表 */}
-            <ul className="max-h-60 overflow-auto">
+            <ul
+              ref={listRef}
+              className="max-h-60 overflow-auto overscroll-contain py-1"
+            >
               {filteredOptions.length === 0 ? (
                 <li className="px-4 py-8 text-center text-slate-500 text-sm">
                   No options found
@@ -218,8 +242,9 @@ export function SearchableSelect({
                     onClick={() => handleSelect(option)}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     className={cn(
-                      'px-4 py-2.5 cursor-pointer transition-colors',
+                      'px-4 py-3 cursor-pointer transition-colors',
                       'flex items-center justify-between',
+                      'last:mb-1',
                       option.disabled && 'opacity-50 cursor-not-allowed',
                       highlightedIndex === index && !option.disabled && 'bg-indigo-50 text-indigo-700',
                       value === option.value && 'font-medium text-indigo-700'

@@ -357,7 +357,7 @@ export function PresetManager() {
                 请先安装 Oh My OpenCode 插件后再使用预设功能。
               </p>
               <code className="mt-2 inline-block text-xs bg-amber-100 px-2 py-1 rounded text-amber-900">
-                bunx oh-my-opencode install
+                {omoInfo?.update_command || 'cd ~/.opencode && npm install oh-my-opencode@latest'}
               </code>
             </div>
           </div>

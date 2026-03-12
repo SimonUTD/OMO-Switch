@@ -133,7 +133,7 @@ export function Modal({
         )}
 
         {/* 内容区 */}
-        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
+        <div className="px-6 py-4 overflow-visible flex-1 min-h-0">{children}</div>
 
         {/* 底部按钮区 */}
         {footer && (

@@ -346,6 +346,23 @@ export function SettingsPage() {
                   </div>
                 )}
 
+                {v.installed && (v.install_source || v.install_path) && (
+                  <div className="mt-2 space-y-1 text-xs text-slate-500">
+                    {v.install_source && (
+                      <div>
+                        {t('versionCheck.installSource')}:
+                        <span className="font-mono text-slate-700 ml-1">{v.install_source}</span>
+                      </div>
+                    )}
+                    {v.install_path && (
+                      <div>
+                        {t('versionCheck.installPath')}:
+                        <span className="font-mono text-slate-700 ml-1 break-all">{v.install_path}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {v.installed && v.has_update && (
                   <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
                     <p className="text-sm text-amber-800 mb-2">{v.update_hint}</p>

@@ -353,6 +353,9 @@ export interface VersionInfo {
   update_command: string;
   update_hint: string;
   installed: boolean;
+  install_source: string | null;
+  install_path: string | null;
+  detected_from: string | null;
 }
 
 export async function checkVersions(): Promise<VersionInfo[]> {
