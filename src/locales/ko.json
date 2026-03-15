@@ -36,6 +36,24 @@
       "providers": "제공업체 상태"
     }
   },
+  "provider": {
+    "typeOptions": {
+      "openai": "OpenAI",
+      "openaiCompatible": "OpenAI Compatible",
+      "anthropic": "Anthropic",
+      "githubCopilot": "GitHub Copilot",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "xai": "xAI",
+      "mistral": "Mistral",
+      "deepinfra": "DeepInfra",
+      "cerebras": "Cerebras",
+      "cohere": "Cohere",
+      "togetherai": "Together AI",
+      "perplexity": "Perplexity",
+      "vercel": "Vercel"
+    }
+  },
   "providerStatus": {
     "title": "제공업체 상태",
     "description": "모든 제공업체의 연결 상태와 모델 수량 확인",

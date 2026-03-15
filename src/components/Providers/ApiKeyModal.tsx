@@ -25,6 +25,13 @@ const PROVIDER_TYPE_OPTIONS = [
   { value: '@ai-sdk/anthropic', labelKey: 'provider.typeOptions.anthropic' },
   { value: '@openrouter/ai-sdk-provider', labelKey: 'provider.typeOptions.openrouter' },
   { value: '@ai-sdk/groq', labelKey: 'provider.typeOptions.groq' },
+  { value: '@ai-sdk/xai', labelKey: 'provider.typeOptions.xai' },
+  { value: '@ai-sdk/mistral', labelKey: 'provider.typeOptions.mistral' },
+  { value: '@ai-sdk/deepinfra', labelKey: 'provider.typeOptions.deepinfra' },
+  { value: '@ai-sdk/cerebras', labelKey: 'provider.typeOptions.cerebras' },
+  { value: '@ai-sdk/cohere', labelKey: 'provider.typeOptions.cohere' },
+  { value: '@ai-sdk/togetherai', labelKey: 'provider.typeOptions.togetherai' },
+  { value: '@ai-sdk/perplexity', labelKey: 'provider.typeOptions.perplexity' },
 ] as const;
 
 export function ApiKeyModal({ provider, onClose, onSuccess }: ApiKeyModalProps) {

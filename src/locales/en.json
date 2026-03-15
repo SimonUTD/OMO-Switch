@@ -101,8 +101,17 @@
       "openai": "OpenAI",
       "openaiCompatible": "OpenAI Compatible",
       "anthropic": "Anthropic",
+      "githubCopilot": "GitHub Copilot",
       "openrouter": "OpenRouter",
-      "groq": "Groq"
+      "groq": "Groq",
+      "xai": "xAI",
+      "mistral": "Mistral",
+      "deepinfra": "DeepInfra",
+      "cerebras": "Cerebras",
+      "cohere": "Cohere",
+      "togetherai": "Together AI",
+      "perplexity": "Perplexity",
+      "vercel": "Vercel"
     },
     "presets": {
       "anthropicDesc": "Official Claude series model API",
