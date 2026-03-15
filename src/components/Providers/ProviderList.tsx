@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, ExternalLink, Trash2, Settings, Plus, ChevronDown, Edit } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -12,8 +12,11 @@ const ICON_FAIL_CACHE_KEY = 'omo.providerIconFailCache.v1';
 
 const iconPathCache = new Map<string, string | null>();
 const iconInflight = new Map<string, Promise<string | null>>();
+let iconFailCache: Record<string, number> | null = null;
 let iconQueueRunning = 0;
 const iconQueueWaiters: Array<() => void> = [];
+let iconVisibilityObserver: IntersectionObserver | null = null;
+const iconVisibilityCallbacks = new Map<Element, () => void>();
 
 function runWithIconQueue<T>(task: () => Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -38,17 +41,27 @@ function runWithIconQueue<T>(task: () => Promise<T>): Promise<T> {
 }
 
 function readIconFailCache(): Record<string, number> {
+  if (iconFailCache) {
+    return iconFailCache;
+  }
+
   try {
     const raw = localStorage.getItem(ICON_FAIL_CACHE_KEY);
-    if (!raw) return {};
+    if (!raw) {
+      iconFailCache = {};
+      return iconFailCache;
+    }
     const parsed = JSON.parse(raw);
-    return typeof parsed === 'object' && parsed ? parsed as Record<string, number> : {};
+    iconFailCache = typeof parsed === 'object' && parsed ? parsed as Record<string, number> : {};
+    return iconFailCache;
   } catch {
-    return {};
+    iconFailCache = {};
+    return iconFailCache;
   }
 }
 
 function writeIconFailCache(cache: Record<string, number>) {
+  iconFailCache = cache;
   try {
     localStorage.setItem(ICON_FAIL_CACHE_KEY, JSON.stringify(cache));
   } catch {
@@ -110,6 +123,34 @@ async function getProviderIconPath(providerId: string): Promise<string | null> {
 
   iconInflight.set(providerId, request);
   return request;
+}
+
+function observeIconVisibility(element: Element, onVisible: () => void): () => void {
+  if (typeof IntersectionObserver === 'undefined') {
+    onVisible();
+    return () => {};
+  }
+
+  if (!iconVisibilityObserver) {
+    iconVisibilityObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const callback = iconVisibilityCallbacks.get(entry.target);
+        if (!callback) return;
+        iconVisibilityCallbacks.delete(entry.target);
+        iconVisibilityObserver?.unobserve(entry.target);
+        callback();
+      });
+    }, { rootMargin: '160px' });
+  }
+
+  iconVisibilityCallbacks.set(element, onVisible);
+  iconVisibilityObserver.observe(element);
+
+  return () => {
+    iconVisibilityCallbacks.delete(element);
+    iconVisibilityObserver?.unobserve(element);
+  };
 }
 
 export interface ProviderInfo {
@@ -188,73 +229,52 @@ function CollapsibleSection({
   );
 }
 
-function ProviderIcon({ providerId, name }: { providerId: string; name: string }) {
+function ProviderIcon({
+  providerId,
+  name,
+}: {
+  providerId: string;
+  name: string;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const [iconPath, setIconPath] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    if (typeof IntersectionObserver === 'undefined') {
-      setShouldLoad(true);
-      return;
+  const [iconPath, setIconPath] = useState<string | null | undefined>(() => {
+    if (!iconPathCache.has(providerId)) {
+      return undefined;
     }
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setShouldLoad(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: '120px' });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+    return iconPathCache.get(providerId) ?? null;
+  });
 
   useEffect(() => {
-    if (!shouldLoad) {
-      setLoading(false);
+    setIconPath(iconPathCache.has(providerId) ? (iconPathCache.get(providerId) ?? null) : undefined);
+  }, [providerId]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || iconPath !== undefined) {
       return;
     }
 
     let cancelled = false;
 
-    async function loadIcon() {
-      setLoading(true);
-      try {
-        const path = await getProviderIconPath(providerId);
-        if (!cancelled) {
-          if (path) {
-            setIconPath(path);
-            setError(false);
-          } else {
-            setError(true);
-            setIconPath(null);
-          }
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setError(true);
-          setIconPath(null);
-          setLoading(false);
-        }
-      }
-    }
+    const loadIcon = () => {
+      void getProviderIconPath(providerId).then((path) => {
+        if (cancelled) return;
+        setIconPath(path);
+      });
+    };
 
-    void loadIcon();
-    return () => { cancelled = true; };
-  }, [providerId, shouldLoad]);
+    const unobserve = observeIconVisibility(element, loadIcon);
+    return () => {
+      cancelled = true;
+      unobserve();
+    };
+  }, [providerId, iconPath]);
 
   return (
     <div ref={containerRef} className="w-12 h-12 flex-shrink-0">
-      {!shouldLoad || loading ? (
-        <div className="w-12 h-12 rounded-xl bg-slate-100 animate-pulse" />
-      ) : error || !iconPath ? (
+      {iconPath === undefined ? (
+        <div className="w-12 h-12 rounded-xl bg-slate-100" />
+      ) : !iconPath ? (
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
           <span className="text-white font-bold text-lg">
             {name.charAt(0).toUpperCase()}
@@ -265,6 +285,8 @@ function ProviderIcon({ providerId, name }: { providerId: string; name: string }
           src={convertFileSrc(iconPath)}
           alt={name}
           className="w-12 h-12 rounded-xl object-contain bg-white p-1 shadow-sm"
+          loading="lazy"
+          decoding="async"
         />
       )}
     </div>
@@ -278,7 +300,12 @@ interface ProviderCardProps {
   onDelete?: () => void;
 }
 
-function ProviderCard({ provider, onConfigure, onEdit, onDelete }: ProviderCardProps) {
+const ProviderCard = memo(function ProviderCard({
+  provider,
+  onConfigure,
+  onEdit,
+  onDelete,
+}: ProviderCardProps) {
   const { t } = useTranslation();
 
   const handleWebsiteClick = (e: React.MouseEvent) => {
@@ -292,7 +319,7 @@ function ProviderCard({ provider, onConfigure, onEdit, onDelete }: ProviderCardP
     <div
       className={`
         group relative bg-white rounded-xl border p-4
-        transition-all duration-200 hover:shadow-md
+        transition-colors duration-200 hover:shadow-md
         ${provider.is_configured
           ? 'border-emerald-200 bg-emerald-50/30'
           : 'border-slate-200 hover:border-indigo-300'
@@ -365,7 +392,7 @@ function ProviderCard({ provider, onConfigure, onEdit, onDelete }: ProviderCardP
       </div>
     </div>
   );
-}
+});
 
 interface ProviderListProps {
   configuredProviders: ProviderInfo[];
