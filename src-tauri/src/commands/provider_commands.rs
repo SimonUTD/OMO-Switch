@@ -485,11 +485,16 @@ pub fn set_provider_api_key(
             .filter(|value| !value.is_empty());
 
         if let Some(url) = trimmed {
-            if config["provider"][&provider_id_for_config].get("options").is_none() {
+            if config["provider"][&provider_id_for_config]
+                .get("options")
+                .is_none()
+            {
                 config["provider"][&provider_id_for_config]["options"] = json!({});
             }
             config["provider"][&provider_id_for_config]["options"]["baseURL"] = json!(url);
-        } else if let Some(options) = config["provider"][&provider_id_for_config]["options"].as_object_mut() {
+        } else if let Some(options) =
+            config["provider"][&provider_id_for_config]["options"].as_object_mut()
+        {
             options.remove("baseURL");
             if options.is_empty() {
                 config["provider"][&provider_id_for_config]
@@ -508,8 +513,15 @@ fn provider_default_npm(provider_id: &str) -> &'static str {
     match provider_id {
         "openai" => "@ai-sdk/openai",
         "github-copilot" => "@ai-sdk/github-copilot",
-        "zhipuai" | "zhipuai-coding-plan" | "moonshotai" | "moonshotai-cn" | "kimi-for-coding"
-        | "minimax" | "minimax-cn" | "minimax-coding-plan" | "minimax-cn-coding-plan" => "@ai-sdk/openai-compatible",
+        "zhipuai"
+        | "zhipuai-coding-plan"
+        | "moonshotai"
+        | "moonshotai-cn"
+        | "kimi-for-coding"
+        | "minimax"
+        | "minimax-cn"
+        | "minimax-coding-plan"
+        | "minimax-cn-coding-plan" => "@ai-sdk/openai-compatible",
         "deepseek" => "@ai-sdk/anthropic",
         "xai" => "@ai-sdk/openai",
         "groq" => "@ai-sdk/groq",
@@ -770,6 +782,8 @@ mod tests {
             website_url: Some("https://test.com".to_string()),
             is_configured: true,
             is_builtin: true,
+            supports_base_url: true,
+            supports_connection_test: true,
         };
 
         let json = serde_json::to_string(&provider).unwrap();

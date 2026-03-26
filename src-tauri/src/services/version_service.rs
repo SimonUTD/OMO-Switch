@@ -25,13 +25,39 @@ struct InstallDetection {
     detected_from: String,
 }
 
-/// Get opencode current version by executing ~/.opencode/bin/opencode --version
-/// 添加 3 秒超时机制，防止命令卡住阻塞 UI
+/// Get opencode current version by executing opencode --version
+#[allow(dead_code)]
 pub fn get_opencode_version() -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let bin_path = format!("{}/.opencode/bin/opencode", home);
+    get_opencode_detection().and_then(|d| d.version)
+}
 
-    let mut child = Command::new(&bin_path)
+fn get_opencode_detection() -> Option<InstallDetection> {
+    let home = std::env::var("HOME").ok()?;
+
+    let opencode_bin = format!("{}/.opencode/bin/opencode", home);
+    let candidates: Vec<(&str, &str)> = vec![
+        (&opencode_bin, "opencode_runtime"),
+        ("/opt/homebrew/bin/opencode", "brew_apple_silicon"),
+        ("/usr/local/bin/opencode", "brew_intel"),
+        ("/home/linuxbrew/.linuxbrew/bin/opencode", "linuxbrew"),
+    ];
+
+    for (bin_path, source) in candidates {
+        if let Some(version) = try_get_version(bin_path) {
+            return Some(InstallDetection {
+                version: Some(version),
+                install_source: source.to_string(),
+                install_path: bin_path.to_string(),
+                detected_from: bin_path.to_string(),
+            });
+        }
+    }
+
+    None
+}
+
+fn try_get_version(bin_path: &str) -> Option<String> {
+    let mut child = Command::new(bin_path)
         .arg("--version")
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -52,15 +78,13 @@ pub fn get_opencode_version() -> Option<String> {
                     None
                 };
             }
-            Ok(Some(_)) => return None, // 命令执行失败
+            Ok(Some(_)) => return None,
             Ok(None) => {
-                // 还在运行，检查超时
                 if start.elapsed() > timeout {
                     let _ = child.kill();
                     let _ = child.wait();
                     return None;
                 }
-                // 短暂休眠避免忙等待
                 std::thread::sleep(Duration::from_millis(100));
             }
             Err(_) => return None,
@@ -72,7 +96,10 @@ fn detect_omo_install() -> Option<InstallDetection> {
     let home = std::env::var("HOME").ok()?;
 
     // 1. 当前实际 opencode 运行目录: ~/.opencode/node_modules/oh-my-opencode/
-    let runtime_pkg = format!("{}/.opencode/node_modules/oh-my-opencode/package.json", home);
+    let runtime_pkg = format!(
+        "{}/.opencode/node_modules/oh-my-opencode/package.json",
+        home
+    );
     if let Some(version) = read_pkg_version(&runtime_pkg) {
         return Some(InstallDetection {
             version: Some(version),
@@ -327,7 +354,8 @@ pub fn check_all_versions() -> Vec<VersionInfo> {
     let mut results = Vec::new();
 
     // OpenCode
-    let oc_current = get_opencode_version();
+    let oc_detection = get_opencode_detection();
+    let oc_current = oc_detection.as_ref().and_then(|d| d.version.clone());
     let oc_latest = get_opencode_latest_version();
     results.push(VersionInfo {
         name: "OpenCode".to_string(),
@@ -340,13 +368,9 @@ pub fn check_all_versions() -> Vec<VersionInfo> {
         },
         update_command: "opencode upgrade".to_string(),
         update_hint: "Run 'opencode upgrade' in terminal".to_string(),
-        install_source: Some("opencode_runtime".to_string()),
-        install_path: std::env::var("HOME")
-            .ok()
-            .map(|home| format!("{}/.opencode/bin/opencode", home)),
-        detected_from: std::env::var("HOME")
-            .ok()
-            .map(|home| format!("{}/.opencode/bin/opencode", home)),
+        install_source: oc_detection.as_ref().map(|d| d.install_source.clone()),
+        install_path: oc_detection.as_ref().map(|d| d.install_path.clone()),
+        detected_from: oc_detection.as_ref().map(|d| d.detected_from.clone()),
     });
 
     // Oh My OpenCode

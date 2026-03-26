@@ -27,6 +27,16 @@
 
 ---
 
+## 🆕 Recent Updates (2026-03)
+
+- **Config file compatibility improved**: The app now reads `~/.config/opencode/oh-my-opencode.jsonc` first, then falls back to `oh-my-opencode.json`.
+- **JSONC comment support**: Reading supports JSONC comments (`//`, `/* */`); writing still creates a `.json.bak` backup first, and JSONC comments are not preserved on write.
+- **Model library API adaptation**: Compatible with the latest `models.dev` response format grouped by provider, with correct input/output pricing mapping.
+- **Version detection improvement**: OpenCode version detection now checks multiple install sources (runtime path, Homebrew, Linuxbrew), making source/path info in Settings more accurate.
+- **Updater disabled by default**: In `src-tauri/tauri.conf.json`, updater is currently configured as `active: false`; set it to `true` and configure a valid signing public key to enable updates.
+
+---
+
 ## 🌟 Key Features
 
 - **🚀 High Performance**: Built on **Tauri 2.0** + **React 18**, lightweight and fast with minimal resource usage
@@ -49,6 +59,7 @@
 
 ### 2. Configuration Overview
 - **Status Monitoring**: Real-time display of config file path, size, modification time
+- **Config Compatibility**: Automatically supports both `oh-my-opencode.jsonc` and `oh-my-opencode.json`
 - **Provider List**: View connected model providers
 - **Model Assignment Table**: Overview of all Agent model assignments
 - **Config Validation**: Automatic validation of configuration format
@@ -67,6 +78,7 @@
 
 ### 4. Model Library
 - **Model List**: View all available models and their providers
+- **API Compatibility**: Supports the latest `models.dev` provider-grouped response format
 - **Pricing Info**: Display input/output pricing for models
 - **Capability Description**: View model capabilities and use cases
 - **Quick Apply**: One-click apply model to specified Agent
@@ -79,7 +91,7 @@
 
 ### 6. Settings
 - **Language Switching**: 5 languages with real-time switching
-- **Version Detection**: Detect OpenCode and oh-my-opencode versions
+- **Version Detection**: Detect OpenCode and oh-my-opencode versions with install source and path
 - **Auto Updates**: Check for app updates with one-click installation
 - **GitHub Link**: Quick access to project repository
 
@@ -187,7 +199,7 @@ npm run tauri:build
 
 ## 🔄 Auto Update Configuration
 
-The project integrates Tauri official Updater plugin for automatic update checking and one-click installation.
+The project integrates the official Tauri Updater plugin. In the current repo, updater is disabled by default (`active: false`); once enabled, it supports update checking and one-click installation.
 
 ### Setup Steps
 
@@ -202,6 +214,7 @@ bun run tauri signer generate -- -w ~/.tauri/omo-switch.key
 {
   "plugins": {
     "updater": {
+      "active": true,
       "pubkey": "YOUR_PUBLIC_KEY_HERE"
     }
   }

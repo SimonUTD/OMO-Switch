@@ -27,6 +27,16 @@
 
 ---
 
+## 🆕 近期更新（2026-03）
+
+- **配置文件兼容增强**：读取配置时优先使用 `~/.config/opencode/oh-my-opencode.jsonc`，若不存在则回退 `oh-my-opencode.json`。
+- **JSONC 注释兼容**：支持读取带 `//` 与 `/* */` 注释的 JSONC 配置；写回时会先创建 `.json.bak` 备份（`jsonc` 注释不会保留）。
+- **模型库接口适配**：已兼容 `models.dev` 最新“按 provider 分组”的响应结构，并正确映射 input/output 定价字段。
+- **版本检测增强**：OpenCode 版本检测支持多安装来源（运行时路径、Homebrew、Linuxbrew），设置页显示的来源/路径信息更准确。
+- **更新器默认关闭**：当前仓库配置 `src-tauri/tauri.conf.json` 中 updater 为 `active: false`，如需启用请改为 `true` 并配置有效签名公钥。
+
+---
+
 ## 🌟 核心特性
 
 - **🚀 极致性能**：基于 **Tauri 2.0** + **React 18**，轻量快速，资源占用极低
@@ -49,6 +59,7 @@
 
 ### 2. 配置总览
 - **状态监控**：实时显示配置文件路径、大小、修改时间
+- **配置兼容**：自动兼容 `oh-my-opencode.jsonc` 与 `oh-my-opencode.json`
 - **提供商列表**：查看已连接的模型提供商
 - **模型分配表**：一览所有 Agent 的模型分配情况
 - **配置验证**：自动验证配置格式正确性
@@ -67,6 +78,7 @@
 
 ### 4. 模型库浏览
 - **模型列表**：查看所有可用模型及其提供商
+- **接口兼容**：兼容 `models.dev` 新版 provider 分组响应格式
 - **定价信息**：显示模型的输入/输出定价
 - **能力描述**：查看模型能力和适用场景
 - **快速应用**：一键将模型应用到指定 Agent
@@ -79,7 +91,7 @@
 
 ### 6. 设置中心
 - **语言切换**：5 种语言实时切换
-- **版本检测**：检测 OpenCode 和 oh-my-opencode 版本
+- **版本检测**：检测 OpenCode 和 oh-my-opencode 版本，并显示安装来源与路径
 - **自动更新**：检查应用更新，一键下载安装
 - **GitHub 链接**：快速访问项目仓库
 
@@ -222,7 +234,7 @@ git push origin v1.0.0
 
 ## 🔄 自动更新配置
 
-项目已集成 Tauri 官方 Updater 插件，支持自动检查更新和一键安装。
+项目已集成 Tauri 官方 Updater 插件。当前仓库默认配置为关闭（`active: false`），启用后可支持自动检查更新和一键安装。
 
 ### 配置步骤
 
@@ -237,6 +249,7 @@ bun run tauri signer generate -- -w ~/.tauri/omo-switch.key
 {
   "plugins": {
     "updater": {
+      "active": true,
       "pubkey": "YOUR_PUBLIC_KEY_HERE"
     }
   }

@@ -3,64 +3,123 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 
+/// 移除 JSONC 中的注释
+fn strip_jsonc_comments(content: &str) -> String {
+    let mut result = String::with_capacity(content.len());
+    let chars: Vec<char> = content.chars().collect();
+    let mut i = 0;
+    let mut in_string = false;
+
+    while i < chars.len() {
+        let c = chars[i];
+
+        if c == '"' && (i == 0 || chars[i - 1] != '\\') {
+            in_string = !in_string;
+            result.push(c);
+            i += 1;
+            continue;
+        }
+
+        if in_string {
+            result.push(c);
+            i += 1;
+            continue;
+        }
+
+        if i + 1 < chars.len() && c == '/' && chars[i + 1] == '/' {
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
+            continue;
+        }
+
+        if i + 1 < chars.len() && c == '/' && chars[i + 1] == '*' {
+            i += 2;
+            while i + 1 < chars.len() {
+                if chars[i] == '*' && chars[i + 1] == '/' {
+                    i += 2;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+
+        result.push(c);
+        i += 1;
+    }
+
+    result
+}
+
 /// 获取 OMO 配置文件路径
-/// 返回 ~/.config/opencode/oh-my-opencode.json 的完整路径
 pub fn get_config_path() -> Result<PathBuf, String> {
     let home = std::env::var("HOME").map_err(|_| i18n::tr_current("home_env_var_error"))?;
 
-    let config_path = PathBuf::from(home)
-        .join(".config")
-        .join("opencode")
-        .join("oh-my-opencode.json");
+    let config_dir = PathBuf::from(home).join(".config").join("opencode");
 
-    Ok(config_path)
+    let jsonc_path = config_dir.join("oh-my-opencode.jsonc");
+    if jsonc_path.exists() {
+        return Ok(jsonc_path);
+    }
+
+    let json_path = config_dir.join("oh-my-opencode.json");
+    Ok(json_path)
 }
 
 /// 读取 OMO 配置文件
-/// 返回完整的 JSON 配置对象，使用 serde_json::Value 保留所有字段
 pub fn read_omo_config() -> Result<Value, String> {
     let config_path = get_config_path()?;
 
-    // 检查文件是否存在
     if !config_path.exists() {
         return Err(i18n::tr_current("config_file_not_found"));
     }
 
-    // 读取文件内容
     let content = fs::read_to_string(&config_path)
         .map_err(|e| format!("{}: {}", i18n::tr_current("read_config_failed"), e))?;
 
-    // 解析 JSON（使用 Value 保留所有未知字段）
-    let config: Value = serde_json::from_str(&content)
+    let json_content = if config_path
+        .extension()
+        .map(|e| e == "jsonc")
+        .unwrap_or(false)
+    {
+        strip_jsonc_comments(&content)
+    } else {
+        content
+    };
+
+    let config: Value = serde_json::from_str(&json_content)
         .map_err(|e| format!("{}: {}", i18n::tr_current("parse_json_failed"), e))?;
 
     Ok(config)
 }
 
 /// 写入 OMO 配置文件
-/// 先创建 .bak 备份，再写入新配置
-/// 使用 serde_json::Value 确保不丢失任何字段
 pub fn write_omo_config(config: &Value) -> Result<(), String> {
     let config_path = get_config_path()?;
 
-    // 如果原文件存在，先创建备份
     if config_path.exists() {
         let backup_path = config_path.with_extension("json.bak");
         fs::copy(&config_path, &backup_path)
             .map_err(|e| format!("{}: {}", i18n::tr_current("create_backup_failed"), e))?;
     }
 
-    // 确保父目录存在
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("{}: {}", i18n::tr_current("create_config_dir_failed"), e))?;
     }
 
-    // 格式化 JSON（带缩进，便于人类阅读）
     let json_string = serde_json::to_string_pretty(config)
         .map_err(|e| format!("{}: {}", i18n::tr_current("serialize_json_failed"), e))?;
 
-    // 写入文件
+    let is_jsonc = config_path
+        .extension()
+        .map(|e| e == "jsonc")
+        .unwrap_or(false);
+    if is_jsonc {
+        eprintln!("警告：写入 .jsonc 文件会丢失注释，原注释已备份到 .json.bak");
+    }
+
     fs::write(&config_path, json_string)
         .map_err(|e| format!("{}: {}", i18n::tr_current("write_config_failed"), e))?;
 

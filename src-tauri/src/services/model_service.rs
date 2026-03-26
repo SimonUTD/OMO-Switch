@@ -41,10 +41,15 @@ struct ConnectedProvidersCache {
     updated_at: String,
 }
 
-/// models.dev API 响应结构（简化版）
+/// models.dev API 响应结构（新格式：按提供商分组）
 #[derive(Debug, Deserialize)]
-struct ModelsDevResponse {
-    models: Vec<ModelsDevModel>,
+struct ModelsDevResponse(HashMap<String, ModelsDevProvider>);
+
+#[derive(Debug, Deserialize)]
+struct ModelsDevProvider {
+    #[allow(dead_code)]
+    id: String,
+    models: HashMap<String, ModelsDevModel>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,8 +62,9 @@ struct ModelsDevModel {
 
 #[derive(Debug, Deserialize)]
 struct ModelsDevPricing {
-    prompt: Option<f64>,
-    completion: Option<f64>,
+    input: Option<f64>,
+    output: Option<f64>,
+    #[serde(default)]
     currency: Option<String>,
 }
 
@@ -272,7 +278,9 @@ fn run_opencode_models_with_command(binary: &str) -> Result<HashMap<String, Vec<
         Command::new(binary)
     };
 
-    cmd.args(["models"]).stdout(Stdio::piped()).stderr(Stdio::null());
+    cmd.args(["models"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
 
     if let Some(path_env) = build_opencode_path_env() {
         cmd.env("PATH", path_env);
@@ -404,8 +412,8 @@ fn write_verified_models_override(models: &HashMap<String, Vec<String>>) -> Resu
     let payload = ProviderModelsCache {
         models: models.clone(),
     };
-    let content = serde_json::to_string_pretty(&payload)
-        .map_err(|e| format!("序列化模型缓存失败: {}", e))?;
+    let content =
+        serde_json::to_string_pretty(&payload).map_err(|e| format!("序列化模型缓存失败: {}", e))?;
     fs::write(&cache_file, content)
         .map_err(|e| format!("写入模型缓存文件失败 {:?}: {}", cache_file, e))?;
     Ok(())
@@ -479,8 +487,8 @@ pub fn get_connected_providers() -> Result<Vec<String>, String> {
             .map_err(|e| format!("无法读取已连接提供商文件 {:?}: {}", cache_file, e))?;
 
         // 解析 JSON
-        let cache: ConnectedProvidersCache =
-            serde_json::from_str(&content).map_err(|e| format!("解析已连接提供商文件失败: {}", e))?;
+        let cache: ConnectedProvidersCache = serde_json::from_str(&content)
+            .map_err(|e| format!("解析已连接提供商文件失败: {}", e))?;
 
         cache.connected
     };
@@ -588,18 +596,21 @@ pub fn fetch_models_dev() -> Result<Vec<ModelInfo>, String> {
         Ok(resp) => {
             match resp.into_json::<ModelsDevResponse>() {
                 Ok(models_dev) => {
+                    // 新格式：遍历所有提供商，提取所有模型
                     let models: Vec<ModelInfo> = models_dev
-                        .models
-                        .into_iter()
-                        .map(|m| ModelInfo {
-                            id: m.id,
-                            name: m.name,
-                            description: m.description,
-                            pricing: m.pricing.map(|p| ModelPricing {
-                                prompt: p.prompt,
-                                completion: p.completion,
-                                currency: p.currency,
-                            }),
+                        .0
+                        .into_values()
+                        .flat_map(|provider| {
+                            provider.models.into_values().map(|m| ModelInfo {
+                                id: m.id,
+                                name: m.name,
+                                description: m.description,
+                                pricing: m.pricing.map(|p| ModelPricing {
+                                    prompt: p.input,
+                                    completion: p.output,
+                                    currency: p.currency,
+                                }),
+                            })
                         })
                         .collect();
 
