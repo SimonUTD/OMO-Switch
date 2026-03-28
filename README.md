@@ -326,6 +326,7 @@ SOFTWARE.
 
 ## 🙏 特别鸣谢
 
+- 本项目 Fork 自 [ShellMonster/OMO-Switch](https://github.com/ShellMonster/OMO-Switch)，感谢原作者的贡献
 - 本项目基于 [Tauri](https://tauri.app/) 构建，感谢 Tauri 团队提供的优秀框架
 - 感谢 [oh-my-opencode](https://github.com/oh-my-opencode/oh-my-opencode) 提供的强大 Agent 框架
 - 感谢所有贡献者和用户的支持与反馈

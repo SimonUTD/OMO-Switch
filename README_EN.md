@@ -237,6 +237,7 @@ This project is open source under the [MIT License](LICENSE).
 
 ## 🙏 Acknowledgments
 
+- This project is a fork of [ShellMonster/OMO-Switch](https://github.com/ShellMonster/OMO-Switch), thanks to the original author for the great work
 - Built with [Tauri](https://tauri.app/), thanks to the Tauri team
 - Thanks to [oh-my-opencode](https://github.com/oh-my-opencode/oh-my-opencode) for the powerful Agent framework
 - Thanks to all contributors and users for their support

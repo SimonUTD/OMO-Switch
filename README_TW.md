@@ -155,6 +155,7 @@ bun run tauri signer generate -- -w ~/.tauri/omo-switch.key
 
 ## 🙏 特別鳴謝
 
+- 本專案 Fork 自 [ShellMonster/OMO-Switch](https://github.com/ShellMonster/OMO-Switch)，感謝原作者的優秀貢獻
 - 本專案基於 [Tauri](https://tauri.app/) 建置，感謝 Tauri 團隊提供的優秀框架
 - 感謝 [oh-my-opencode](https://github.com/oh-my-opencode/oh-my-opencode) 提供的強大 Agent 框架
 - 感謝所有貢獻者和使用者的支援與回饋
