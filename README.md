@@ -1,8 +1,8 @@
 # 🔄 OMO Switch
 
-[![GitHub stars](https://img.shields.io/github/stars/ShellMonster/OMO-Switch?style=flat-square)](https://github.com/ShellMonster/OMO-Switch/stargazers)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/ShellMonster/OMO-Switch/blob/main/LICENSE)
-[![GitHub release](https://img.shields.io/github/v/release/ShellMonster/OMO-Switch?style=flat-square)](https://github.com/ShellMonster/OMO-Switch/releases)
+[![GitHub stars](https://img.shields.io/github/stars/SimonUTD/OMO-Switch?style=flat-square)](https://github.com/SimonUTD/OMO-Switch/stargazers)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/SimonUTD/OMO-Switch/blob/main/LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/SimonUTD/OMO-Switch?style=flat-square)](https://github.com/SimonUTD/OMO-Switch/releases)
 ![React](https://img.shields.io/badge/React-18.3.1-blue.svg?style=flat-square)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0-FFC131.svg?style=flat-square)
 ![Rust](https://img.shields.io/badge/Rust-1.75-000000.svg?style=flat-square)
@@ -334,8 +334,8 @@ SOFTWARE.
 
 ## 📞 联系我们
 
-- **GitHub**: [https://github.com/ShellMonster/OMO-Switch](https://github.com/ShellMonster/OMO-Switch)
-- **Issues**: [https://github.com/ShellMonster/OMO-Switch/issues](https://github.com/ShellMonster/OMO-Switch/issues)
+- **GitHub**: [https://github.com/SimonUTD/OMO-Switch](https://github.com/SimonUTD/OMO-Switch)
+- **Issues**: [https://github.com/SimonUTD/OMO-Switch/issues](https://github.com/SimonUTD/OMO-Switch/issues)
 
 ---
 

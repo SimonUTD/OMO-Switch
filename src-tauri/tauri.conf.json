@@ -28,7 +28,7 @@
       "active": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5QzYzODI1NkRDMEI0N0EKUldSNnRNQnRKVGpHZVVJeERabUplb0MrVFR1OC91SDlGOTlOVlBKSFdvRlNFMHFGSkhITHR1aHIK%",
       "endpoints": [
-        "https://github.com/ShellMonster/OMO-Switch/releases/latest/download/latest.json"
+        "https://github.com/SimonUTD/OMO-Switch/releases/latest/download/latest.json"
       ]
     }
   },
