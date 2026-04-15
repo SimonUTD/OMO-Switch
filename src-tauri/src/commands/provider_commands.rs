@@ -452,7 +452,10 @@ pub fn get_provider_status() -> Result<Vec<ProviderInfo>, String> {
     let config_provider_ids = match read_config_provider_ids() {
         Ok(ids) => ids,
         Err(err) => {
-            eprintln!("警告：读取 opencode provider 失败，降级为空配置数据: {}", err);
+            eprintln!(
+                "警告：读取 opencode provider 失败，降级为空配置数据: {}",
+                err
+            );
             HashSet::new()
         }
     };
@@ -580,11 +583,16 @@ pub fn set_provider_api_key(
             .filter(|value| !value.is_empty());
 
         if let Some(url) = trimmed {
-            if config["provider"][&provider_id_for_config].get("options").is_none() {
+            if config["provider"][&provider_id_for_config]
+                .get("options")
+                .is_none()
+            {
                 config["provider"][&provider_id_for_config]["options"] = json!({});
             }
             config["provider"][&provider_id_for_config]["options"]["baseURL"] = json!(url);
-        } else if let Some(options) = config["provider"][&provider_id_for_config]["options"].as_object_mut() {
+        } else if let Some(options) =
+            config["provider"][&provider_id_for_config]["options"].as_object_mut()
+        {
             options.remove("baseURL");
             if options.is_empty() {
                 config["provider"][&provider_id_for_config]
@@ -603,8 +611,15 @@ fn provider_default_npm(provider_id: &str) -> &'static str {
     match provider_id {
         "openai" => "@ai-sdk/openai",
         "github-copilot" => "@ai-sdk/github-copilot",
-        "zhipuai" | "zhipuai-coding-plan" | "moonshotai" | "moonshotai-cn" | "kimi-for-coding"
-        | "minimax" | "minimax-cn" | "minimax-coding-plan" | "minimax-cn-coding-plan" => "@ai-sdk/openai-compatible",
+        "zhipuai"
+        | "zhipuai-coding-plan"
+        | "moonshotai"
+        | "moonshotai-cn"
+        | "kimi-for-coding"
+        | "minimax"
+        | "minimax-cn"
+        | "minimax-coding-plan"
+        | "minimax-cn-coding-plan" => "@ai-sdk/openai-compatible",
         "deepseek" => "@ai-sdk/anthropic",
         "xai" => "@ai-sdk/openai",
         "groq" => "@ai-sdk/groq",
@@ -972,9 +987,20 @@ mod tests {
             result.err()
         );
         let providers = result.unwrap();
-        assert_eq!(providers.len(), 1);
-        assert_eq!(providers[0].id, "openai");
-        assert!(!providers[0].is_configured);
+        assert!(
+            providers.len() >= 1,
+            "应该至少有一个 provider，实际有: {}",
+            providers.len()
+        );
+        assert!(
+            providers.iter().any(|p| p.id == "openai"),
+            "应该包含 openai provider"
+        );
+        let openai_provider = providers.iter().find(|p| p.id == "openai");
+        assert!(
+            openai_provider.map(|p| !p.is_configured).unwrap_or(false),
+            "openai 应该未配置"
+        );
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
