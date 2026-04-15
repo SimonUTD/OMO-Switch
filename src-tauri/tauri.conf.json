@@ -25,7 +25,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhBRENFQUY5NTIwNTUwQ0UKUldUT1VBVlMrZXJjaWpMbndKcEozMGU3cHBsbWdwMVYxZnVDb3NtVWJBQlFMVDcraGlyRmZxbWgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0ODc3ODZCMUI3NDUzNEMKUldSTVUzUWJhM2lISk5rVDRxRVhZMVJuem5uYXBpenlWUUYxajFQYklTYUFKUDdwaW5wNUtiQVIK",
       "endpoints": [
         "https://github.com/SimonUTD/OMO-Switch/releases/latest/download/latest.json"
       ]
