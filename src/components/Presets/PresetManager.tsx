@@ -4,7 +4,7 @@ import { Bookmark, Plus, Trash2, Power, CheckCircle2, ChevronDown, ChevronRight,
 import { Button } from '../common/Button';
 import { Modal, ConfirmModal } from '../common/Modal';
 import { toast } from '../common/Toast';
-import { savePreset, loadPreset, deletePreset, renamePreset, getPresetInfo, getPresetMeta, saveConfigSnapshot } from '../../services/tauri';
+import { savePreset, loadPreset, deletePreset, renamePreset, getPresetInfo, getPresetMeta, saveConfigSnapshot, setActivePreset as persistActivePreset } from '../../services/tauri';
 import { usePresetStore } from '../../store/presetStore';
 import { usePreloadStore } from '../../store/preloadStore';
 
@@ -19,6 +19,16 @@ interface PresetCardProps {
   onRename: (oldName: string, newName: string) => Promise<void>;
   loadLabel: string;
   deleteLabel: string;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return fallback;
 }
 
 function PresetCard({ name, agentCount, categoryCount, updatedAt, isActive, onLoad, onDelete, onRename, loadLabel, deleteLabel }: PresetCardProps) {
@@ -64,7 +74,7 @@ function PresetCard({ name, agentCount, categoryCount, updatedAt, isActive, onLo
       await onRename(name, next);
       setIsEditingName(false);
     } catch (err) {
-      setRenameError(err instanceof Error ? err.message : t('presetManager.renameFailed'));
+      setRenameError(getErrorMessage(err, t('presetManager.renameFailed')));
     } finally {
       setIsRenaming(false);
     }
@@ -236,7 +246,7 @@ export function PresetManager() {
       setPresets(presetsWithInfo);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('presetManager.loadListFailed'));
+      setError(getErrorMessage(err, t('presetManager.loadListFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -254,13 +264,14 @@ export function PresetManager() {
 
     try {
       setIsLoading(true);
-      await savePreset(newPresetName.trim());
+      const presetName = newPresetName.trim();
+      await savePreset(presetName);
       setShowSaveModal(false);
       setNewPresetName('');
       await loadPresetList();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('presetManager.saveFailed'));
+      setError(getErrorMessage(err, t('presetManager.saveFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -275,8 +286,9 @@ export function PresetManager() {
       toast.success(t('presetManager.loadSuccess', { name }));
       setError(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('presetManager.loadFailed'));
-      setError(err instanceof Error ? err.message : t('presetManager.loadFailed'));
+      const message = getErrorMessage(err, t('presetManager.loadFailed'));
+      toast.error(message);
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -299,8 +311,9 @@ export function PresetManager() {
       await loadPresetList();
       setError(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('presetManager.deleteFailed'));
-      setError(err instanceof Error ? err.message : t('presetManager.deleteFailed'));
+      const message = getErrorMessage(err, t('presetManager.deleteFailed'));
+      toast.error(message);
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -338,6 +351,17 @@ export function PresetManager() {
 
     if (activePreset === oldName) {
       setActivePreset(trimmedName);
+      try {
+        await persistActivePreset(trimmedName);
+      } catch (err) {
+        toast.warning(
+          err instanceof Error
+            ? err.message
+            : t('presetManager.persistActivePresetFailed', {
+                defaultValue: '预设已重命名，但当前活动预设同步失败',
+              })
+        );
+      }
     }
     if (selectedPreset === oldName) {
       setSelectedPreset(trimmedName);
