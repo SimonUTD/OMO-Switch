@@ -344,10 +344,7 @@ fn run_opencode_models_with_command(
                 if start.elapsed() > timeout {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Err(format!(
-                        "`{}` 执行超时（{}s）",
-                        binary, timeout_secs
-                    ));
+                    return Err(format!("`{}` 执行超时（{}s）", binary, timeout_secs));
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
@@ -371,10 +368,7 @@ fn get_available_models_from_opencode_cmd() -> Result<HashMap<String, Vec<String
     for binary in build_opencode_candidates() {
         let elapsed = started.elapsed();
         if elapsed >= total_timeout {
-            errors.push(format!(
-                "总超时预算已耗尽（{}s）",
-                total_timeout.as_secs()
-            ));
+            errors.push(format!("总超时预算已耗尽（{}s）", total_timeout.as_secs()));
             break;
         }
 
@@ -422,7 +416,16 @@ fn read_verified_models_override() -> HashMap<String, Vec<String>> {
 }
 
 fn get_cached_available_models() -> Result<HashMap<String, Vec<String>>, String> {
-    let cache_file = get_cache_dir()?.join("provider-models.json");
+    let Ok(cache_dir) = get_cache_dir() else {
+        // HOME 环境变量不可用时优雅降级：返回空模型列表
+        let mut result = HashMap::new();
+        for (provider_id, models) in read_verified_models_override() {
+            result.insert(provider_id, models);
+        }
+        merge_custom_models(&mut result);
+        return Ok(result);
+    };
+    let cache_file = cache_dir.join("provider-models.json");
 
     // 1. 从缓存文件读取模型列表
     let mut result = if cache_file.exists() {
