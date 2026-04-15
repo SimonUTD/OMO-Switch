@@ -16,10 +16,10 @@ fn get_config_dir() -> Result<PathBuf, String> {
 fn get_config_candidates() -> Result<Vec<PathBuf>, String> {
     let dir = get_config_dir()?;
     Ok(vec![
-        dir.join(PRIMARY_CONFIG_BASENAME),
         dir.join(PRIMARY_CONFIG_BASENAME_JSONC),
-        dir.join(LEGACY_CONFIG_BASENAME),
+        dir.join(PRIMARY_CONFIG_BASENAME),
         dir.join(LEGACY_CONFIG_BASENAME_JSONC),
+        dir.join(LEGACY_CONFIG_BASENAME),
     ])
 }
 
@@ -36,7 +36,7 @@ fn resolve_write_config_path() -> Result<PathBuf, String> {
     if let Some(existing) = resolve_existing_config_path()? {
         return Ok(existing);
     }
-    Ok(get_config_dir()?.join(PRIMARY_CONFIG_BASENAME))
+    Ok(get_config_dir()?.join(PRIMARY_CONFIG_BASENAME_JSONC))
 }
 
 fn parse_config_content(content: &str) -> Result<Value, String> {
@@ -67,11 +67,7 @@ pub fn read_omo_config() -> Result<Value, String> {
         let content = match fs::read_to_string(&config_path) {
             Ok(content) => content,
             Err(e) => {
-                last_error = Some(format!(
-                    "{}: {}",
-                    i18n::tr_current("read_config_failed"),
-                    e
-                ));
+                last_error = Some(format!("{}: {}", i18n::tr_current("read_config_failed"), e));
                 continue;
             }
         };
