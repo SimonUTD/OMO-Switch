@@ -5,7 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::i18n;
-use crate::services::config_service::{read_omo_config, validate_config, write_omo_config};
+use crate::services::config_service::{
+    get_config_path, read_omo_config, validate_config, write_omo_config,
+};
 
 const DEFAULT_MAX_BACKUP_RECORDS: usize = 10;
 const MAX_BACKUP_RECORDS_UPPER: usize = 500;
@@ -96,9 +98,14 @@ fn get_managed_backup_entries_with_ts() -> Result<Vec<(PathBuf, u64)>, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
         let path = entry.path();
-        let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-        let is_managed = filename.starts_with("oh-my-opencode_") || filename.starts_with("export_");
-        if !is_managed || path.extension().and_then(|s| s.to_str()) != Some("json") {
+        let filename = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        let is_managed = filename.starts_with("oh-my-opencode_")
+            || filename.starts_with("oh-my-openagent_")
+            || filename.starts_with("export_");
+        if !is_managed {
             continue;
         }
         let metadata = fs::metadata(&path).map_err(|e| format!("获取文件元数据失败: {}", e))?;
@@ -257,7 +264,13 @@ pub fn validate_import_file(path: &str) -> Result<Value, String> {
 /// - `Ok(PathBuf)`: 备份成功，返回备份文件路径
 /// - `Err(String)`: 备份失败，包含错误信息
 fn backup_current_config() -> Result<PathBuf, String> {
-    backup_current_config_with_prefix("oh-my-opencode")
+    let config_path = get_config_path()?;
+    // 从配置文件名提取前缀，如 "oh-my-opencode.jsonc" → "oh-my-opencode"
+    let prefix = config_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("oh-my-opencode");
+    backup_current_config_with_prefix(prefix)
 }
 
 fn backup_current_config_with_prefix(prefix: &str) -> Result<PathBuf, String> {
@@ -323,7 +336,10 @@ fn ensure_backup_path(path: &str) -> Result<PathBuf, String> {
         .file_name()
         .and_then(|s| s.to_str())
         .ok_or_else(|| "无效备份文件名".to_string())?;
-    if !(filename.starts_with("oh-my-opencode_") || filename.starts_with("export_")) {
+    if !(filename.starts_with("oh-my-opencode_")
+        || filename.starts_with("oh-my-openagent_")
+        || filename.starts_with("export_"))
+    {
         return Err("仅允许操作 OMO 生成的备份文件".to_string());
     }
 
@@ -383,8 +399,13 @@ pub fn clear_backup_history() -> Result<usize, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
         let path = entry.path();
-        let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-        let is_managed = filename.starts_with("oh-my-opencode_") || filename.starts_with("export_");
+        let filename = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        let is_managed = filename.starts_with("oh-my-opencode_")
+            || filename.starts_with("oh-my-openagent_")
+            || filename.starts_with("export_");
         if is_managed && path.extension().and_then(|s| s.to_str()) == Some("json") {
             fs::remove_file(&path).map_err(|e| format!("删除备份文件失败: {}", e))?;
             deleted += 1;
@@ -423,7 +444,9 @@ pub fn get_backup_history() -> Result<Vec<BackupInfo>, String> {
         // 只处理 .json 文件
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
             if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
-                let is_managed = filename.starts_with("oh-my-opencode_") || filename.starts_with("export_");
+                let is_managed = filename.starts_with("oh-my-opencode_")
+                    || filename.starts_with("oh-my-openagent_")
+                    || filename.starts_with("export_");
                 if !is_managed {
                     continue;
                 }
@@ -658,7 +681,11 @@ mod tests {
 
         let managed_count = entries
             .iter()
-            .filter(|name| name.starts_with("oh-my-opencode_") || name.starts_with("export_"))
+            .filter(|name| {
+                name.starts_with("oh-my-opencode_")
+                    || name.starts_with("oh-my-openagent_")
+                    || name.starts_with("export_")
+            })
             .count();
         assert_eq!(managed_count, 2);
         assert!(entries.iter().any(|name| name == "manual-note.json"));

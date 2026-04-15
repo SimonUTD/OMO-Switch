@@ -18,6 +18,7 @@ import {
   OmoConfig,
 } from '../../services/tauri';
 import { open, save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { usePreloadStore } from '../../store/preloadStore';
 
 export function ImportExportPanel() {
@@ -35,6 +36,7 @@ export function ImportExportPanel() {
   const [recordExportHistory, setRecordExportHistory] = useState(false);
   const [maxHistoryLimit, setMaxHistoryLimitState] = useState(10);
   const [maxHistoryInput, setMaxHistoryInput] = useState('10');
+  const [defaultExportPath, setDefaultExportPath] = useState('oh-my-opencode.json');
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +68,27 @@ export function ImportExportPanel() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const configPath = await invoke<string>('get_config_path');
+          if (cancelled) return;
+          const filename = configPath.split('/').pop() || 'oh-my-opencode.json';
+          setDefaultExportPath(filename);
+        } catch {
+          if (cancelled) return;
+          // 保持默认值
+        }
+      })();
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
   const loadHistory = async () => {
     try {
       setHistoryLoading(true);
@@ -85,7 +108,7 @@ export function ImportExportPanel() {
       setSuccess(null);
 
       const filePath = await save({
-        defaultPath: 'oh-my-opencode.json',
+        defaultPath: defaultExportPath,
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
 

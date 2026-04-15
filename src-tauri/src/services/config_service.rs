@@ -52,19 +52,32 @@ fn strip_jsonc_comments(content: &str) -> String {
     result
 }
 
+/// 配置文件名优先级列表
+/// oh-my-openagent 优先，回退到 oh-my-opencode
+const CONFIG_FILE_CANDIDATES: &[&str] = &[
+    "oh-my-openagent.jsonc",
+    "oh-my-openagent.json",
+    "oh-my-opencode.jsonc",
+    "oh-my-opencode.json",
+];
+
 /// 获取 OMO 配置文件路径
+/// 优先级: oh-my-openagent.jsonc > oh-my-openagent.json > oh-my-opencode.jsonc > oh-my-opencode.json
+/// 优先查找存在的文件，都不存在时返回最后的回退路径
 pub fn get_config_path() -> Result<PathBuf, String> {
     let home = std::env::var("HOME").map_err(|_| i18n::tr_current("home_env_var_error"))?;
 
     let config_dir = PathBuf::from(home).join(".config").join("opencode");
 
-    let jsonc_path = config_dir.join("oh-my-opencode.jsonc");
-    if jsonc_path.exists() {
-        return Ok(jsonc_path);
+    for candidate in CONFIG_FILE_CANDIDATES {
+        let path = config_dir.join(candidate);
+        if path.exists() {
+            return Ok(path);
+        }
     }
 
-    let json_path = config_dir.join("oh-my-opencode.json");
-    Ok(json_path)
+    // 都不存在时，回退到 oh-my-opencode.json（保持向后兼容）
+    Ok(config_dir.join("oh-my-opencode.json"))
 }
 
 /// 读取 OMO 配置文件
@@ -168,9 +181,15 @@ mod tests {
     #[test]
     fn test_get_config_path() {
         let path = get_config_path().unwrap();
-        assert!(path
-            .to_string_lossy()
-            .contains(".config/opencode/oh-my-opencode.json"));
+        let path_str = path.to_string_lossy();
+        assert!(path_str.contains(".config/opencode/"));
+        let valid_endings = [
+            "oh-my-openagent.jsonc",
+            "oh-my-openagent.json",
+            "oh-my-opencode.jsonc",
+            "oh-my-opencode.json",
+        ];
+        assert!(valid_endings.iter().any(|e| path_str.ends_with(e)));
     }
 
     /// 测试配置验证 - 有效配置
