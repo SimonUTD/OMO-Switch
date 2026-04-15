@@ -427,15 +427,51 @@ fn get_cached_available_models() -> Result<HashMap<String, Vec<String>>, String>
     };
     let cache_file = cache_dir.join("provider-models.json");
 
-    // 1. 从缓存文件读取模型列表
+    // 1. 从缓存文件读取模型列表（优雅处理格式不匹配）
     let mut result = if cache_file.exists() {
-        let content = fs::read_to_string(&cache_file)
-            .map_err(|e| format!("{}: {}", i18n::tr_current("read_model_cache_failed"), e))?;
+        let content = match fs::read_to_string(&cache_file) {
+            Ok(c) => c,
+            Err(_) => {
+                return Ok({
+                    let mut result = HashMap::new();
+                    for (provider_id, models) in read_verified_models_override() {
+                        result.insert(provider_id, models);
+                    }
+                    merge_custom_models(&mut result);
+                    result
+                });
+            }
+        };
 
-        let cache: ProviderModelsCache = serde_json::from_str(&content)
-            .map_err(|e| format!("{}: {}", i18n::tr_current("parse_model_cache_failed"), e))?;
-
-        cache.models
+        match serde_json::from_str::<ProviderModelsCache>(&content) {
+            Ok(cache) => cache.models,
+            Err(_) => {
+                let mut models_map: HashMap<String, Vec<String>> = HashMap::new();
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(models_obj) = value.get("models").and_then(|m| m.as_object()) {
+                        for (provider_id, provider_models) in models_obj {
+                            let model_ids: Vec<String> = provider_models
+                                .as_array()
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|m| {
+                                            m.get("id")
+                                                .and_then(|v| v.as_str())
+                                                .map(String::from)
+                                                .or_else(|| m.as_str().map(String::from))
+                                        })
+                                        .collect()
+                                })
+                                .unwrap_or_default();
+                            if !model_ids.is_empty() {
+                                models_map.insert(provider_id.clone(), model_ids);
+                            }
+                        }
+                    }
+                }
+                models_map
+            }
+        }
     } else {
         HashMap::new()
     };
