@@ -86,6 +86,7 @@
     "baseUrlRequired": "Please enter Base URL",
     "noConfigured": "No configured providers",
     "noBuiltin": "All builtin providers are configured",
+    "noCustom": "No unconfigured custom providers",
     "edit": "Edit",
     "deleteConfirm": "Are you sure you want to delete the authorization for provider \"{{name}}\"?",
     "confirmDelete": "Confirm Delete",
@@ -625,7 +626,7 @@
    },
    "versionCheck": {
      "title": "Version Info",
-     "description": "OpenCode and Oh My OpenCode version status",
+    "description": "OpenCode and Oh My OpenAgent version status",
      "currentVersion": "Current Version",
      "latestVersion": "Latest Version",
      "installSource": "Install Source",
@@ -641,7 +642,7 @@
        "updateCommand": "opencode upgrade"
      },
      "omo": {
-       "updateHint": "Edit oh-my-opencode@version in ~/.config/opencode/opencode.json and restart opencode",
+      "updateHint": "Edit oh-my-openagent@version (legacy oh-my-opencode also works) in ~/.config/opencode/opencode.json and restart opencode",
        "updateCommand": "Edit opencode.json"
      },
       "checkUpdate": "Check for Updates",

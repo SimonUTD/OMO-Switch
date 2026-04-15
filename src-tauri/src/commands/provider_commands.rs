@@ -79,6 +79,8 @@ pub struct ProviderInfo {
     pub supports_base_url: bool,
     /// 当前是否支持在 UI 中直接测试连接
     pub supports_connection_test: bool,
+    /// auth.json 中是否存在该 provider 的授权记录（决定是否可执行“删除授权”）
+    pub can_delete_auth: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,11 +122,34 @@ struct ConnectedProvidersCache {
     updated_at: String,
 }
 
-/// 供应商模型缓存结构（用于 provider-models.json）
-/// 文件格式: { "models": { "provider_id": ["model1", "model2"] } }
+/// 兼容两种 provider-models.json 格式：
+/// 1. 旧格式: { "models": { "provider_id": ["model1", "model2"] } }
+/// 2. 新格式: { "models": { "provider_id": [{ "id": "...", ... }] } }
 #[derive(Debug, Deserialize)]
 struct ProviderModelsCache {
-    models: HashMap<String, Vec<String>>,
+    models: HashMap<String, Vec<ProviderModelEntry>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ProviderModelEntry {
+    Id(String),
+    Object {
+        id: String,
+        #[allow(dead_code)]
+        #[serde(rename = "providerID")]
+        provider_id: Option<String>,
+        #[allow(dead_code)]
+        name: Option<String>,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+struct ProviderPresetEntry {
+    id: String,
+    name: String,
+    npm: Option<String>,
+    website_url: Option<String>,
 }
 
 // ============================================================================
@@ -321,6 +346,31 @@ fn provider_supports_connection_test(provider_id: &str) -> bool {
     BASE_URL_COMPATIBLE_PROVIDERS.contains(&provider_id)
 }
 
+fn load_builtin_provider_presets() -> HashMap<String, ProviderPresetEntry> {
+    let content = include_str!("../../presets/providers.json");
+    let Ok(entries) = serde_json::from_str::<Vec<ProviderPresetEntry>>(content) else {
+        return HashMap::new();
+    };
+
+    entries
+        .into_iter()
+        .map(|entry| (entry.id.clone(), entry))
+        .collect()
+}
+
+fn read_config_provider_ids() -> Result<HashSet<String>, String> {
+    let config = read_opencode_config()?;
+    let mut result = HashSet::new();
+
+    if let Some(provider_obj) = config.get("provider").and_then(|value| value.as_object()) {
+        for provider_id in provider_obj.keys() {
+            result.insert(provider_id.clone());
+        }
+    }
+
+    Ok(result)
+}
+
 /// 读取 connected-providers.json 获取已连接的供应商
 fn read_connected_providers() -> Result<HashSet<String>, String> {
     let path = get_connected_providers_path()?;
@@ -344,7 +394,29 @@ fn read_provider_models() -> Result<HashMap<String, Vec<String>>, String> {
         fs::read_to_string(&path).map_err(|e| format!("读取 provider-models.json 失败: {}", e))?;
     let cache: ProviderModelsCache = serde_json::from_str(&content)
         .map_err(|e| format!("解析 provider-models.json 失败: {}", e))?;
-    Ok(cache.models)
+    let normalized = cache
+        .models
+        .into_iter()
+        .map(|(provider_id, entries)| {
+            let models = entries
+                .into_iter()
+                .filter_map(|entry| match entry {
+                    ProviderModelEntry::Id(id) => {
+                        let trimmed = id.trim().to_string();
+                        (!trimmed.is_empty()).then_some(trimmed)
+                    }
+                    ProviderModelEntry::Object { id, .. } => {
+                        let trimmed = id.trim().to_string();
+                        (!trimmed.is_empty()).then_some(trimmed)
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            (provider_id, models)
+        })
+        .collect();
+
+    Ok(normalized)
 }
 
 // ============================================================================
@@ -376,27 +448,50 @@ pub fn get_provider_status() -> Result<Vec<ProviderInfo>, String> {
         }
     };
 
-    // 4. 合并数据
+    // 4. 从 opencode.json provider 节点读取供应商（允许“仅配置未鉴权”的场景可见）
+    let config_provider_ids = match read_config_provider_ids() {
+        Ok(ids) => ids,
+        Err(err) => {
+            eprintln!("警告：读取 opencode provider 失败，降级为空配置数据: {}", err);
+            HashSet::new()
+        }
+    };
+
+    // 5. 内置供应商元数据
+    let builtin_presets = load_builtin_provider_presets();
+
+    // 6. 并集所有来源，避免“已连接但列表不可见”
+    let mut provider_ids: HashSet<String> = builtin_presets.keys().cloned().collect();
+    provider_ids.extend(provider_models.keys().cloned());
+    provider_ids.extend(connected.iter().cloned());
+    provider_ids.extend(auth_data.keys().cloned());
+    provider_ids.extend(config_provider_ids);
+
+    // 7. 组装返回结构
     let mut providers = Vec::new();
 
-    for (provider_id, _models) in provider_models {
-        let is_configured =
-            connected.contains(&provider_id) || auth_data.contains_key(&provider_id);
+    for provider_id in provider_ids {
+        let preset = builtin_presets.get(&provider_id);
+        let has_auth = auth_data.contains_key(&provider_id);
+        let is_configured = connected.contains(&provider_id) || has_auth;
 
         providers.push(ProviderInfo {
             id: provider_id.clone(),
-            name: provider_id.clone(),
-            npm: None,
-            website_url: None,
+            name: preset
+                .map(|entry| entry.name.clone())
+                .unwrap_or_else(|| provider_id.clone()),
+            npm: preset.and_then(|entry| entry.npm.clone()),
+            website_url: preset.and_then(|entry| entry.website_url.clone()),
             is_configured,
-            is_builtin: true,
+            is_builtin: preset.is_some(),
             supports_base_url: provider_supports_base_url(&provider_id),
             supports_connection_test: provider_supports_connection_test(&provider_id),
+            can_delete_auth: has_auth,
         });
     }
 
-    // 按名称排序
-    providers.sort_by(|a, b| a.name.cmp(&b.name));
+    // 按显示名称排序（忽略大小写）
+    providers.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     Ok(providers)
 }
@@ -485,16 +580,11 @@ pub fn set_provider_api_key(
             .filter(|value| !value.is_empty());
 
         if let Some(url) = trimmed {
-            if config["provider"][&provider_id_for_config]
-                .get("options")
-                .is_none()
-            {
+            if config["provider"][&provider_id_for_config].get("options").is_none() {
                 config["provider"][&provider_id_for_config]["options"] = json!({});
             }
             config["provider"][&provider_id_for_config]["options"]["baseURL"] = json!(url);
-        } else if let Some(options) =
-            config["provider"][&provider_id_for_config]["options"].as_object_mut()
-        {
+        } else if let Some(options) = config["provider"][&provider_id_for_config]["options"].as_object_mut() {
             options.remove("baseURL");
             if options.is_empty() {
                 config["provider"][&provider_id_for_config]
@@ -513,15 +603,8 @@ fn provider_default_npm(provider_id: &str) -> &'static str {
     match provider_id {
         "openai" => "@ai-sdk/openai",
         "github-copilot" => "@ai-sdk/github-copilot",
-        "zhipuai"
-        | "zhipuai-coding-plan"
-        | "moonshotai"
-        | "moonshotai-cn"
-        | "kimi-for-coding"
-        | "minimax"
-        | "minimax-cn"
-        | "minimax-coding-plan"
-        | "minimax-cn-coding-plan" => "@ai-sdk/openai-compatible",
+        "zhipuai" | "zhipuai-coding-plan" | "moonshotai" | "moonshotai-cn" | "kimi-for-coding"
+        | "minimax" | "minimax-cn" | "minimax-coding-plan" | "minimax-cn-coding-plan" => "@ai-sdk/openai-compatible",
         "deepseek" => "@ai-sdk/anthropic",
         "xai" => "@ai-sdk/openai",
         "groq" => "@ai-sdk/groq",
@@ -543,7 +626,8 @@ pub fn delete_provider_auth(provider_id: String) -> Result<(), String> {
 
     // 删除指定的供应商认证
     if auth_data.remove(&provider_id).is_none() {
-        return Err(format!("供应商 {} 未配置", provider_id));
+        // 幂等：目标授权不存在时视为已删除
+        return Ok(());
     }
 
     // 写回 auth.json
@@ -609,6 +693,7 @@ pub fn add_custom_provider(
         is_builtin: false,
         supports_base_url: true,
         supports_connection_test: true,
+        can_delete_auth: true,
     })
 }
 
@@ -784,6 +869,7 @@ mod tests {
             is_builtin: true,
             supports_base_url: true,
             supports_connection_test: true,
+            can_delete_auth: true,
         };
 
         let json = serde_json::to_string(&provider).unwrap();

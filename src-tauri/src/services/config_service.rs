@@ -3,136 +3,118 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 
-/// 移除 JSONC 中的注释
-fn strip_jsonc_comments(content: &str) -> String {
-    let mut result = String::with_capacity(content.len());
-    let chars: Vec<char> = content.chars().collect();
-    let mut i = 0;
-    let mut in_string = false;
+const PRIMARY_CONFIG_BASENAME: &str = "oh-my-openagent.json";
+const PRIMARY_CONFIG_BASENAME_JSONC: &str = "oh-my-openagent.jsonc";
+const LEGACY_CONFIG_BASENAME: &str = "oh-my-opencode.json";
+const LEGACY_CONFIG_BASENAME_JSONC: &str = "oh-my-opencode.jsonc";
 
-    while i < chars.len() {
-        let c = chars[i];
-
-        if c == '"' && (i == 0 || chars[i - 1] != '\\') {
-            in_string = !in_string;
-            result.push(c);
-            i += 1;
-            continue;
-        }
-
-        if in_string {
-            result.push(c);
-            i += 1;
-            continue;
-        }
-
-        if i + 1 < chars.len() && c == '/' && chars[i + 1] == '/' {
-            while i < chars.len() && chars[i] != '\n' {
-                i += 1;
-            }
-            continue;
-        }
-
-        if i + 1 < chars.len() && c == '/' && chars[i + 1] == '*' {
-            i += 2;
-            while i + 1 < chars.len() {
-                if chars[i] == '*' && chars[i + 1] == '/' {
-                    i += 2;
-                    break;
-                }
-                i += 1;
-            }
-            continue;
-        }
-
-        result.push(c);
-        i += 1;
-    }
-
-    result
+fn get_config_dir() -> Result<PathBuf, String> {
+    let home = std::env::var("HOME").map_err(|_| i18n::tr_current("home_env_var_error"))?;
+    Ok(PathBuf::from(home).join(".config").join("opencode"))
 }
 
-/// 配置文件名优先级列表
-/// oh-my-openagent 优先，回退到 oh-my-opencode
-const CONFIG_FILE_CANDIDATES: &[&str] = &[
-    "oh-my-openagent.jsonc",
-    "oh-my-openagent.json",
-    "oh-my-opencode.jsonc",
-    "oh-my-opencode.json",
-];
+fn get_config_candidates() -> Result<Vec<PathBuf>, String> {
+    let dir = get_config_dir()?;
+    Ok(vec![
+        dir.join(PRIMARY_CONFIG_BASENAME),
+        dir.join(PRIMARY_CONFIG_BASENAME_JSONC),
+        dir.join(LEGACY_CONFIG_BASENAME),
+        dir.join(LEGACY_CONFIG_BASENAME_JSONC),
+    ])
+}
 
-/// 获取 OMO 配置文件路径
-/// 优先级: oh-my-openagent.jsonc > oh-my-openagent.json > oh-my-opencode.jsonc > oh-my-opencode.json
-/// 优先查找存在的文件，都不存在时返回最后的回退路径
-pub fn get_config_path() -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|_| i18n::tr_current("home_env_var_error"))?;
-
-    let config_dir = PathBuf::from(home).join(".config").join("opencode");
-
-    for candidate in CONFIG_FILE_CANDIDATES {
-        let path = config_dir.join(candidate);
+fn resolve_existing_config_path() -> Result<Option<PathBuf>, String> {
+    for path in get_config_candidates()? {
         if path.exists() {
-            return Ok(path);
+            return Ok(Some(path));
         }
     }
+    Ok(None)
+}
 
-    // 都不存在时，回退到 oh-my-opencode.json（保持向后兼容）
-    Ok(config_dir.join("oh-my-opencode.json"))
+fn resolve_write_config_path() -> Result<PathBuf, String> {
+    if let Some(existing) = resolve_existing_config_path()? {
+        return Ok(existing);
+    }
+    Ok(get_config_dir()?.join(PRIMARY_CONFIG_BASENAME))
+}
+
+fn parse_config_content(content: &str) -> Result<Value, String> {
+    serde_json::from_str::<Value>(content)
+        .or_else(|_| json5::from_str::<Value>(content))
+        .map_err(|e| format!("{}: {}", i18n::tr_current("parse_json_failed"), e))
+}
+
+/// 获取 OMO 配置文件路径
+/// 返回当前实际写入使用的配置路径（优先已存在文件，否则新建到 openagent 文件名）
+pub fn get_config_path() -> Result<PathBuf, String> {
+    resolve_write_config_path()
 }
 
 /// 读取 OMO 配置文件
+/// 返回完整的 JSON 配置对象，使用 serde_json::Value 保留所有字段
 pub fn read_omo_config() -> Result<Value, String> {
-    let config_path = get_config_path()?;
+    let mut has_existing = false;
+    let mut last_error: Option<String> = None;
 
-    if !config_path.exists() {
-        return Err(i18n::tr_current("config_file_not_found"));
+    for config_path in get_config_candidates()? {
+        if !config_path.exists() {
+            continue;
+        }
+
+        has_existing = true;
+
+        let content = match fs::read_to_string(&config_path) {
+            Ok(content) => content,
+            Err(e) => {
+                last_error = Some(format!(
+                    "{}: {}",
+                    i18n::tr_current("read_config_failed"),
+                    e
+                ));
+                continue;
+            }
+        };
+
+        match parse_config_content(&content) {
+            Ok(config) => return Ok(config),
+            Err(e) => {
+                last_error = Some(e);
+            }
+        }
     }
 
-    let content = fs::read_to_string(&config_path)
-        .map_err(|e| format!("{}: {}", i18n::tr_current("read_config_failed"), e))?;
+    if has_existing {
+        return Err(last_error.unwrap_or_else(|| i18n::tr_current("config_file_not_found")));
+    }
 
-    let json_content = if config_path
-        .extension()
-        .map(|e| e == "jsonc")
-        .unwrap_or(false)
-    {
-        strip_jsonc_comments(&content)
-    } else {
-        content
-    };
-
-    let config: Value = serde_json::from_str(&json_content)
-        .map_err(|e| format!("{}: {}", i18n::tr_current("parse_json_failed"), e))?;
-
-    Ok(config)
+    Err(i18n::tr_current("config_file_not_found"))
 }
 
 /// 写入 OMO 配置文件
+/// 先创建 .bak 备份，再写入新配置
+/// 使用 serde_json::Value 确保不丢失任何字段
 pub fn write_omo_config(config: &Value) -> Result<(), String> {
-    let config_path = get_config_path()?;
+    let config_path = resolve_write_config_path()?;
 
+    // 如果原文件存在，先创建备份
     if config_path.exists() {
         let backup_path = config_path.with_extension("json.bak");
         fs::copy(&config_path, &backup_path)
             .map_err(|e| format!("{}: {}", i18n::tr_current("create_backup_failed"), e))?;
     }
 
+    // 确保父目录存在
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("{}: {}", i18n::tr_current("create_config_dir_failed"), e))?;
     }
 
+    // 格式化 JSON（带缩进，便于人类阅读）
     let json_string = serde_json::to_string_pretty(config)
         .map_err(|e| format!("{}: {}", i18n::tr_current("serialize_json_failed"), e))?;
 
-    let is_jsonc = config_path
-        .extension()
-        .map(|e| e == "jsonc")
-        .unwrap_or(false);
-    if is_jsonc {
-        eprintln!("警告：写入 .jsonc 文件会丢失注释，原注释已备份到 .json.bak");
-    }
-
+    // 写入文件
     fs::write(&config_path, json_string)
         .map_err(|e| format!("{}: {}", i18n::tr_current("write_config_failed"), e))?;
 
@@ -181,15 +163,9 @@ mod tests {
     #[test]
     fn test_get_config_path() {
         let path = get_config_path().unwrap();
-        let path_str = path.to_string_lossy();
-        assert!(path_str.contains(".config/opencode/"));
-        let valid_endings = [
-            "oh-my-openagent.jsonc",
-            "oh-my-openagent.json",
-            "oh-my-opencode.jsonc",
-            "oh-my-opencode.json",
-        ];
-        assert!(valid_endings.iter().any(|e| path_str.ends_with(e)));
+        assert!(path
+            .to_string_lossy()
+            .contains(".config/opencode/oh-my-openagent.json"));
     }
 
     /// 测试配置验证 - 有效配置
