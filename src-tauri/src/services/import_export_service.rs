@@ -105,7 +105,10 @@ fn get_managed_backup_entries_with_ts() -> Result<Vec<(PathBuf, u64)>, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
         let path = entry.path();
-        let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+        let filename = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
         let is_managed = is_managed_backup_filename(filename);
         if !is_managed || path.extension().and_then(|s| s.to_str()) != Some("json") {
             continue;
@@ -266,7 +269,13 @@ pub fn validate_import_file(path: &str) -> Result<Value, String> {
 /// - `Ok(PathBuf)`: 备份成功，返回备份文件路径
 /// - `Err(String)`: 备份失败，包含错误信息
 fn backup_current_config() -> Result<PathBuf, String> {
-    backup_current_config_with_prefix("oh-my-openagent")
+    // 动态获取配置文件名作为备份前缀，确保备份名与配置文件匹配
+    let config_path = crate::services::config_service::get_config_path()?;
+    let prefix = config_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("oh-my-openagent");
+    backup_current_config_with_prefix(prefix)
 }
 
 fn backup_current_config_with_prefix(prefix: &str) -> Result<PathBuf, String> {
@@ -392,7 +401,10 @@ pub fn clear_backup_history() -> Result<usize, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
         let path = entry.path();
-        let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+        let filename = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
         let is_managed = is_managed_backup_filename(filename);
         if is_managed && path.extension().and_then(|s| s.to_str()) == Some("json") {
             fs::remove_file(&path).map_err(|e| format!("删除备份文件失败: {}", e))?;
